@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+*.local
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+serviceAccount.json
+*-firebase-adminsdk-*.json
+
+# Whisper model cache (downloaded at runtime)
+backend/models/
+backend/audio_store/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
