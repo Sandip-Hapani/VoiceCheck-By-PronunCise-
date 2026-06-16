@@ -1,0 +1,83 @@
+"""Thin wrapper around the Firestore Admin SDK.
+
+The backend is the only writer of pipeline results; the frontend reads the same
+documents through the client SDK's real-time listener. Keeping all Firestore
+access here keeps the pipeline testable and the field names in one place.
+"""
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+from .config import Settings
+
+logger = logging.getLogger(__name__)
+
+# Document status values, mirrored in the frontend's Submission type.
+STATUS_PROCESSING = "processing"
+STATUS_DONE = "done"
+STATUS_ERROR = "error"
+
+
+class FirestoreClient:
+    def __init__(self, settings: Settings) -> None:
+        self._collection_name = settings.firestore_collection
+        self._public_base_url = settings.public_base_url.rstrip("/")
+        if not firebase_admin._apps:  # idempotent across reloads
+            if settings.google_application_credentials:
+                cred = credentials.Certificate(settings.google_application_credentials)
+                firebase_admin.initialize_app(cred)
+            else:
+                # Application Default Credentials (Cloud Run, gcloud auth, etc.)
+                firebase_admin.initialize_app()
+        self._db = firestore.client()
+
+    @property
+    def _collection(self):
+        return self._db.collection(self._collection_name)
+
+    def create_submission(self, *, student_email: str, student_uid: str) -> str:
+        """Create a 'processing' submission and return its document id.
+
+        The audio playback URL is derived from the new document id so the
+        caller can persist the uploaded file under the same id.
+        """
+        doc = self._collection.document()
+        audio_url = f"{self._public_base_url}/api/audio/{doc.id}"
+        doc.set(
+            {
+                "studentEmail": student_email,
+                "studentUid": student_uid,
+                "status": STATUS_PROCESSING,
+                "audioUrl": audio_url,
+                "transcription": "",
+                "strengths": [],
+                "improvements": [],
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            }
+        )
+        return doc.id
+
+    def mark_done(self, submission_id: str, feedback: dict[str, Any]) -> None:
+        self._collection.document(submission_id).update(
+            {
+                "status": STATUS_DONE,
+                "transcription": feedback["transcription"],
+                "strengths": feedback["strengths"],
+                "improvements": feedback["improvements"],
+                "completedAt": firestore.SERVER_TIMESTAMP,
+            }
+        )
+
+    def mark_error(self, submission_id: str, message: str) -> None:
+        self._collection.document(submission_id).update(
+            {"status": STATUS_ERROR, "error": message}
+        )
+
+    def verify_id_token(self, id_token: str) -> dict[str, Any]:
+        from firebase_admin import auth
+
+        return auth.verify_id_token(id_token)
