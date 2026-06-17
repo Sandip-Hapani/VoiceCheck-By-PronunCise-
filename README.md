@@ -121,6 +121,28 @@ The `constraints.txt` / `setuptools<81` step is required because `openai-whisper
 ollama pull qwen2.5:7b && ollama serve
 ```
 
+### Free & persistent setup (no Cloud Storage, no billing)
+
+Firebase **Auth and Firestore are free** (Spark plan, no card). Only Cloud
+Storage now asks you to enable billing. To run fully free with data shared and
+persisted between frontend and backend:
+
+1. **Leave `FIREBASE_STORAGE_BUCKET` empty** in `backend/.env`. Audio is then
+   stored on the backend disk (`audio_store/`, persists across restarts) and
+   served from `/api/audio/{key}`.
+2. **Point the backend at the same cloud Firestore the frontend uses** — install
+   the full `requirements.txt` (so `firebase-admin` is present) and set
+   `GOOGLE_APPLICATION_CREDENTIALS=./serviceAccount.json`. Both apps then read and
+   write the same Firestore project, so the frontend sees every upload live.
+
+> ⚠️ **Watch the startup log.** It prints `store=FirestoreClient` when sharing
+> cloud Firestore. If you see `store=InMemoryStore` (and a warning), the backend
+> is isolated — the frontend won't see its data and it's lost on restart. That
+> happens when `firebase-admin` isn't installed or the credentials are missing.
+
+Only the audio bytes stay on the backend; everything the frontend needs (status,
+transcript, feedback, reviews) lives in the shared, persistent Firestore.
+
 ### Quick backend check via Swagger
 
 To exercise the API on its own — without Whisper, Firebase, or Ollama — install

@@ -79,7 +79,24 @@ async def lifespan(app: FastAPI):
     app.state.transcriber = transcriber
     app.state.store = store
     app.state.audio_storage = audio_storage
-    logger.info("VoiceCheck backend ready.")
+
+    # Loud, explicit summary so it's obvious whether the frontend will see this
+    # backend's data. The frontend reads real (cloud) Firestore — if this backend
+    # is on the in-memory store, the two are NOT sharing data.
+    store_kind = type(store).__name__
+    logger.info(
+        "VoiceCheck ready | store=%s | audio=%s | transcriber=%s",
+        store_kind,
+        type(audio_storage).__name__,
+        type(transcriber).__name__,
+    )
+    if store_kind == "InMemoryStore":
+        logger.warning(
+            "Backend is using the IN-MEMORY store. The frontend reads cloud "
+            "Firestore, so it will NOT see these submissions, and data is lost "
+            "on restart. Install firebase-admin and set "
+            "GOOGLE_APPLICATION_CREDENTIALS to use the shared cloud Firestore."
+        )
     yield
 
 
