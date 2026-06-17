@@ -30,7 +30,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 from .config import Settings, get_settings
 from .pipeline import process_submission
@@ -120,6 +120,11 @@ def _authenticate(
         return store.verify_id_token(token)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=401, detail="Invalid token") from exc
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/healthz", tags=["health"])
