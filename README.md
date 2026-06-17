@@ -71,9 +71,12 @@ voicecheck/
 1. Create a project at <https://console.firebase.google.com>.
 2. **Build → Authentication → Sign-in method →** enable **Email/Password**.
 3. **Build → Firestore Database → Create database** (test mode is fine locally).
-4. **Project settings → General → Your apps →** register a **Web app** and copy
+4. **Build → Storage → Get started** to enable Cloud Storage, then copy the
+   **bucket name** shown at the top (e.g. `my-project.appspot.com` or
+   `my-project.firebasestorage.app`) → `FIREBASE_STORAGE_BUCKET` in `backend/.env`.
+5. **Project settings → General → Your apps →** register a **Web app** and copy
    the config values (these go in `frontend/.env.local`).
-5. **Project settings → Service accounts → Generate new private key**. Save the
+6. **Project settings → Service accounts → Generate new private key**. Save the
    JSON as `backend/serviceAccount.json` (git-ignored).
 
 ### 2. Backend
@@ -179,6 +182,7 @@ On first login each account picks a role (**Student** or **Teacher**), stored in
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
 | `OLLAMA_MODEL` | `qwen2.5:7b` | Feedback model |
 | `GOOGLE_APPLICATION_CREDENTIALS` | `./serviceAccount.json` | Firebase admin creds (empty = ADC) |
+| `FIREBASE_STORAGE_BUCKET` | _(empty)_ | Bucket for audio; empty = store locally |
 | `VERIFY_AUTH` | `true` | Verify Firebase ID token on upload |
 | `PUBLIC_BASE_URL` | `http://localhost:8000` | Base for audio playback URLs |
 | `CORS_ORIGINS` | `http://localhost:5173` | Allowed origins (comma-separated) |
@@ -207,9 +211,12 @@ On first login each account picks a role (**Student** or **Teacher**), stored in
   this is enforced client-side + via security rules; production would promote the
   teacher role to a Firebase **custom claim** so it can't be self-assigned
   (sketched in `DEPLOYMENT.md` / `firestore.rules`).
-- **Audio lives on the backend** at `/api/audio/{id}` for local simplicity. In
-  production this is a Cloud Storage object served via signed URL — the
-  `audioUrl` field already isolates that change.
+- **Pluggable audio storage.** Set `FIREBASE_STORAGE_BUCKET` and the backend
+  uploads each clip to **Firebase Storage**, writing a Firebase download URL into
+  the `audioUrl` field — so the frontend plays audio online, independent of the
+  backend host. With no bucket configured it falls back to local disk served from
+  `/api/audio/{key}` (dev only). Whisper still reads a transient local copy that's
+  deleted after transcription. See `app/audio_storage.py`.
 - **Backend owns the pipeline; teachers own the review.** The Admin SDK writes
   the audio/transcript/AI feedback (clients can't touch those); teachers may only
   update the review fields (`reviewStatus`, `transcriptVerified`, `teacherNotes`,

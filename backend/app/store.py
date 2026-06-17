@@ -30,7 +30,9 @@ class SubmissionStore(Protocol):
 
     can_verify_tokens: bool
 
-    def create_submission(self, *, student_email: str, student_uid: str) -> str: ...
+    def create_submission(
+        self, *, student_email: str, student_uid: str, audio_url: str
+    ) -> str: ...
     def mark_done(self, submission_id: str, feedback: dict[str, Any]) -> None: ...
     def mark_error(self, submission_id: str, message: str) -> None: ...
     def get_submission(self, submission_id: str) -> dict[str, Any] | None: ...
@@ -43,13 +45,14 @@ class InMemoryStore:
 
     can_verify_tokens = False
 
-    def __init__(self, public_base_url: str) -> None:
-        self._public_base_url = public_base_url.rstrip("/")
+    def __init__(self) -> None:
         self._docs: dict[str, dict[str, Any]] = {}
         self._ids = itertools.count(1)
         self._lock = threading.Lock()
 
-    def create_submission(self, *, student_email: str, student_uid: str) -> str:
+    def create_submission(
+        self, *, student_email: str, student_uid: str, audio_url: str
+    ) -> str:
         with self._lock:
             sid = f"mem{next(self._ids):06d}"
             self._docs[sid] = {
@@ -57,7 +60,7 @@ class InMemoryStore:
                 "studentEmail": student_email,
                 "studentUid": student_uid,
                 "status": STATUS_PROCESSING,
-                "audioUrl": f"{self._public_base_url}/api/audio/{sid}",
+                "audioUrl": audio_url,
                 "transcription": "",
                 "strengths": [],
                 "improvements": [],
@@ -110,4 +113,4 @@ def create_store(settings: Settings) -> SubmissionStore:
             "The frontend real-time listener needs real Firestore.",
             exc,
         )
-        return InMemoryStore(settings.public_base_url)
+        return InMemoryStore()

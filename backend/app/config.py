@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     google_application_credentials: str = ""
     firestore_collection: str = "submissions"
 
+    # Firebase Storage bucket for audio (e.g. "my-project.appspot.com" or
+    # "my-project.firebasestorage.app"). When set, audio is uploaded there and
+    # the frontend plays it from a Firebase download URL. When empty, audio is
+    # stored locally and served from /api/audio (dev fallback).
+    firebase_storage_bucket: str = ""
+
     # --- Auth --------------------------------------------------------------
     # Verify the Firebase ID token on every upload. Can be disabled for quick
     # local smoke tests where you don't want to wire up a real token.

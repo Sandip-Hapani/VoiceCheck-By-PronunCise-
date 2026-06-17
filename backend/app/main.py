@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import (
@@ -32,6 +33,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 
+from .audio_storage import AudioStorage, create_audio_storage
 from .config import Settings, get_settings
 from .pipeline import process_submission
 from .schemas import SubmissionCreated, SubmissionDetail
@@ -71,10 +73,12 @@ async def lifespan(app: FastAPI):
     # Load the heavy resources exactly once (with dev fallbacks).
     transcriber = create_transcriber(settings.whisper_model)
     store = create_store(settings)
+    audio_storage = create_audio_storage(settings)
 
     app.state.settings = settings
     app.state.transcriber = transcriber
     app.state.store = store
+    app.state.audio_storage = audio_storage
     logger.info("VoiceCheck backend ready.")
     yield
 
@@ -142,6 +146,7 @@ async def create_submission(
     """Accept an audio upload and start async transcription + feedback."""
     store: SubmissionStore = app.state.store
     transcriber: TranscriberProtocol = app.state.transcriber
+    audio_storage: AudioStorage = app.state.audio_storage
 
     claims = _authenticate(authorization, settings, store)
 
@@ -151,20 +156,23 @@ async def create_submission(
     if len(data) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="Audio file too large")
 
+    # Persist the audio (Firebase Storage when configured, else local) and get a
+    # playback URL for the frontend.
+    audio_key = uuid.uuid4().hex
+    audio_url = audio_storage.store(audio_key, data)
+
     submission_id = store.create_submission(
         student_email=claims.get("email", "unknown"),
         student_uid=claims.get("uid", "unknown"),
+        audio_url=audio_url,
     )
-
-    audio_path = os.path.join(settings.audio_store_dir, f"{submission_id}.webm")
-    with open(audio_path, "wb") as f:
-        f.write(data)
 
     # Whisper is CPU-bound; BackgroundTasks runs this sync fn in a worker thread.
     background_tasks.add_task(
         process_submission,
         submission_id=submission_id,
-        audio_path=audio_path,
+        audio_key=audio_key,
+        audio_storage=audio_storage,
         transcriber=transcriber,
         firestore=store,
         settings=settings,

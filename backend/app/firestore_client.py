@@ -23,7 +23,6 @@ class FirestoreClient:
 
     def __init__(self, settings: Settings) -> None:
         self._collection_name = settings.firestore_collection
-        self._public_base_url = settings.public_base_url.rstrip("/")
         if not firebase_admin._apps:  # idempotent across reloads
             if settings.google_application_credentials:
                 cred = credentials.Certificate(settings.google_application_credentials)
@@ -37,14 +36,11 @@ class FirestoreClient:
     def _collection(self):
         return self._db.collection(self._collection_name)
 
-    def create_submission(self, *, student_email: str, student_uid: str) -> str:
-        """Create a 'processing' submission and return its document id.
-
-        The audio playback URL is derived from the new document id so the
-        caller can persist the uploaded file under the same id.
-        """
+    def create_submission(
+        self, *, student_email: str, student_uid: str, audio_url: str
+    ) -> str:
+        """Create a 'processing' submission and return its document id."""
         doc = self._collection.document()
-        audio_url = f"{self._public_base_url}/api/audio/{doc.id}"
         doc.set(
             {
                 "studentEmail": student_email,

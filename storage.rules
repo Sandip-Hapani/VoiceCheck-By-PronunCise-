@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Firebase Storage rules for audio recordings.
+//
+// Clients never touch Storage directly in this app:
+//   * The backend Admin SDK uploads audio (Admin access bypasses these rules).
+//   * The frontend plays audio via a Firebase download-token URL, which also
+//     bypasses Security Rules.
+//
+// So we deny all client SDK access by default. If you later switch to direct
+// client uploads, scope writes to recordings/{uid}/... and validate size/type.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
