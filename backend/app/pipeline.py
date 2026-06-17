@@ -9,9 +9,9 @@ from __future__ import annotations
 import logging
 
 from .config import Settings
-from .firestore_client import FirestoreClient
 from .llm import generate_feedback
-from .transcription import Transcriber
+from .store import SubmissionStore
+from .transcription import TranscriberProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,8 @@ def process_submission(
     *,
     submission_id: str,
     audio_path: str,
-    transcriber: Transcriber,
-    firestore: FirestoreClient,
+    transcriber: TranscriberProtocol,
+    firestore: SubmissionStore,
     settings: Settings,
 ) -> None:
     """Transcribe the audio, generate feedback, and write results to Firestore.

@@ -13,16 +13,14 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 from .config import Settings
+from .store import STATUS_DONE, STATUS_ERROR, STATUS_PROCESSING
 
 logger = logging.getLogger(__name__)
 
-# Document status values, mirrored in the frontend's Submission type.
-STATUS_PROCESSING = "processing"
-STATUS_DONE = "done"
-STATUS_ERROR = "error"
-
 
 class FirestoreClient:
+    can_verify_tokens = True
+
     def __init__(self, settings: Settings) -> None:
         self._collection_name = settings.firestore_collection
         self._public_base_url = settings.public_base_url.rstrip("/")
@@ -76,6 +74,18 @@ class FirestoreClient:
         self._collection.document(submission_id).update(
             {"status": STATUS_ERROR, "error": message}
         )
+
+    def get_submission(self, submission_id: str) -> dict[str, Any] | None:
+        snap = self._collection.document(submission_id).get()
+        if not snap.exists:
+            return None
+        return {"id": snap.id, **snap.to_dict()}
+
+    def list_submissions(self) -> list[dict[str, Any]]:
+        docs = self._collection.order_by(
+            "createdAt", direction=firestore.Query.DESCENDING
+        ).stream()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
 
     def verify_id_token(self, id_token: str) -> dict[str, Any]:
         from firebase_admin import auth

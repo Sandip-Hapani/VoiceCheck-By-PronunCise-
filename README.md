@@ -78,6 +78,10 @@ voicecheck/
 
 ### 2. Backend
 
+> **Just want to poke the API?** See
+> [Quick backend check via Swagger](#quick-backend-check-via-swagger) below — it
+> runs on any Python (incl. 3.13/3.14) with no Whisper, Firebase, or Ollama.
+
 **Option A — Docker (recommended; works regardless of your local Python):**
 
 ```bash
@@ -113,6 +117,33 @@ The `constraints.txt` / `setuptools<81` step is required because `openai-whisper
 ```bash
 ollama pull qwen2.5:7b && ollama serve
 ```
+
+### Quick backend check via Swagger
+
+To exercise the API on its own — without Whisper, Firebase, or Ollama — install
+just the core deps and run. The app boots in **dev mode**: a mock transcriber +
+an in-memory store stand in, so the full upload → processing → done flow works
+and is visible in the interactive docs. Runs on any Python, including 3.13/3.14.
+
+```bash
+cd backend
+python -m venv .venv && . .venv/Scripts/activate   # Windows
+pip install -r requirements-core.txt
+uvicorn app.main:app --port 8000
+```
+
+Open **<http://localhost:8000/docs>** (Swagger UI; ReDoc at `/redoc`) and:
+
+1. **POST `/api/submissions`** — upload any small audio file (auth is auto-skipped
+   in dev mode). You get back `{ id, status: "processing" }`.
+2. **GET `/api/submissions/{id}`** — see it already flipped to `done` with a
+   (mock) transcription and feedback.
+3. **GET `/api/submissions`** / **GET `/api/audio/{id}`** — list everything / play
+   the stored clip.
+
+The startup logs tell you which backends are live (real vs. mock/in-memory).
+Start Ollama and/or install the full `requirements.txt` to swap the mocks for the
+real thing.
 
 ### 3. Frontend
 

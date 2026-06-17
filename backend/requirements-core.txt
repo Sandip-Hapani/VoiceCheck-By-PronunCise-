@@ -1,0 +1,16 @@
+# Lightweight deps for running the backend in LOCAL DEV / Swagger mode without
+# the heavy ML + Firebase stack. With only these installed, the app boots using
+# a mock transcriber and an in-memory store (see app/transcription.py + store.py).
+#
+# Version FLOORS (not exact pins) so pip can grab prebuilt wheels for whatever
+# Python you're on — including 3.13/3.14, where older pinned builds have no
+# wheels and would try (and fail) to compile from source.
+#
+# Plain `uvicorn` (not uvicorn[standard]) avoids the native httptools/watchfiles
+# extras. For the full pipeline (real Whisper + Firestore) use requirements.txt.
+fastapi>=0.115
+uvicorn>=0.30
+python-multipart>=0.0.9
+pydantic>=2.10
+pydantic-settings>=2.6
+httpx>=0.27

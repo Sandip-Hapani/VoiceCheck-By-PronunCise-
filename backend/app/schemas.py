@@ -22,3 +22,18 @@ class SubmissionCreated(BaseModel):
 
     id: str
     status: str
+
+
+class SubmissionDetail(BaseModel):
+    """A submission as returned by the read endpoints (used by Swagger/debug)."""
+
+    id: str
+    studentEmail: str | None = None
+    status: str
+    audioUrl: str | None = None
+    transcription: str = ""
+    strengths: list[str] = Field(default_factory=list)
+    improvements: list[str] = Field(default_factory=list)
+    error: str | None = None
+
+    model_config = {"extra": "allow"}  # tolerate extra Firestore fields
