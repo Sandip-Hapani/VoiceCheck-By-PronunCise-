@@ -52,10 +52,15 @@ voicecheck/
 
 ## Prerequisites
 
-- **Node 18+** and **Python 3.11+**
-- **ffmpeg** on your PATH (Whisper needs it) — `winget install ffmpeg` /
-  `brew install ffmpeg` / `apt install ffmpeg`
+- **Node 18+**
+- **Python 3.11 or 3.12** for the backend. ⚠️ `openai-whisper` ships only as a
+  source tarball and does **not** build on Python 3.13/3.14 (its `setup.py`
+  relies on pre-PEP-667 `exec`/`locals()` semantics). If you only have 3.13/3.14,
+  use the **Docker** path below — it builds on 3.11 inside the container.
+- **ffmpeg** on your PATH (Whisper needs it) — `choco install ffmpeg` /
+  `brew install ffmpeg` / `apt install ffmpeg` *(not needed for the Docker path)*
 - A **Firebase project** with Email/Password auth and Firestore enabled
+- **Docker** *(optional, but the simplest backend path)*
 - **[Ollama](https://ollama.com)** with `qwen2.5:7b` pulled *(optional — the
   backend falls back to mock feedback if Ollama isn't running)*
 
@@ -73,17 +78,36 @@ voicecheck/
 
 ### 2. Backend
 
+**Option A — Docker (recommended; works regardless of your local Python):**
+
+```bash
+cd backend
+cp .env.example .env          # set PUBLIC_BASE_URL and creds as needed
+docker build -t voicecheck-api .
+docker run --rm -p 8000:8000 \
+  -v "$PWD/serviceAccount.json:/app/serviceAccount.json:ro" \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+  voicecheck-api
+```
+
+The image bakes in the Whisper `base` model so cold starts don't re-download it.
+
+**Option B — local venv (Python 3.11 / 3.12 only):**
+
 ```bash
 cd backend
 python -m venv .venv && . .venv/Scripts/activate   # Windows
 # source .venv/bin/activate                         # macOS/Linux
-pip install -r requirements.txt
+pip install --upgrade "pip" "setuptools<81" wheel
+pip install -r requirements.txt -c constraints.txt  # constraint fixes whisper's build
 
 cp .env.example .env          # defaults are fine; points at serviceAccount.json
 uvicorn app.main:app --reload --port 8000
 ```
 
 The first start downloads the Whisper `base` model (~140 MB) and loads it once.
+The `constraints.txt` / `setuptools<81` step is required because `openai-whisper`'s
+`setup.py` imports `pkg_resources`, which setuptools ≥81 no longer bundles.
 
 *(Optional)* For real LLM feedback instead of the mock:
 ```bash

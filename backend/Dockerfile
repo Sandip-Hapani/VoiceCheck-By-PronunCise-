@@ -9,7 +9,10 @@ RUN apt-get update \
 WORKDIR /app
 
 # Install deps first for better layer caching.
-COPY requirements.txt .
+# openai-whisper builds from an sdist whose setup.py imports pkg_resources, so
+# the isolated build env must use setuptools < 81 (see constraints.txt).
+COPY requirements.txt constraints.txt ./
+ENV PIP_CONSTRAINT=constraints.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Pre-download the Whisper model at build time so cold starts don't pay for it.

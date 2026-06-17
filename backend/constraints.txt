@@ -1,0 +1,9 @@
+# Build/runtime constraints.
+#
+# openai-whisper ships only as an sdist and its setup.py imports pkg_resources,
+# which setuptools >= 81 no longer bundles. Pinning setuptools < 81 keeps
+# pkg_resources available in pip's isolated build environment.
+#
+# Use with:  pip install -r requirements.txt -c constraints.txt
+# (or set PIP_CONSTRAINT=constraints.txt so it also applies to build isolation)
+setuptools<81
