@@ -1,0 +1,12 @@
+.venv
+venv
+__pycache__
+*.pyc
+audio_store
+models
+.env
+.env.*
+# Never bake secrets into the image — mounted at runtime instead.
+serviceAccount.json
+*-firebase-adminsdk-*.json
+_smoke.py

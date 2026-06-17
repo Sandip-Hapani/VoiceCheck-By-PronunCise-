@@ -64,7 +64,47 @@ voicecheck/
 - **[Ollama](https://ollama.com)** with `qwen2.5:7b` pulled *(optional — the
   backend falls back to mock feedback if Ollama isn't running)*
 
-## Setup (≈5 minutes)
+## Run everything with Docker (recommended)
+
+One command brings up both the FastAPI backend and the nginx-served frontend.
+
+**Prerequisites:** Docker, a Firebase project (see [step 1](#1-firebase-one-time-2-min)),
+and *(optional)* Ollama running on the host for real LLM feedback.
+
+```bash
+# 1. Firebase Admin key for the backend (Console -> Project settings ->
+#    Service accounts -> Generate new private key)
+#    save it here:
+#    backend/serviceAccount.json
+
+# 2. Firebase web config for the frontend build
+cp .env.example .env          # then fill in the VITE_FIREBASE_* values
+
+# 3. Up!
+docker compose up --build
+```
+
+Then open **<http://localhost:5173>** (frontend); the API is on
+<http://localhost:8000> (Swagger at `/docs`).
+
+- The **first** build is slow (it downloads PyTorch and bakes the Whisper `base`
+  model into the backend image). Subsequent `docker compose up` starts are quick.
+- Audio is persisted in the `audio_data` volume; metadata/auth live in your cloud
+  Firestore, so both containers share state.
+- No Ollama running? Feedback falls back to a deterministic mock — the app still
+  works end to end.
+- Stop with `Ctrl+C`; `docker compose down` removes the containers (add `-v` to
+  also wipe the audio volume).
+
+> The `VITE_FIREBASE_*` values are baked into the frontend at build time, so
+> after changing `.env` re-run with `--build`. (Firebase **web** keys are public
+> by design — not secrets.) The Admin `serviceAccount.json` **is** a secret: it's
+> mounted read-only at runtime and never copied into the image.
+
+For running the pieces individually (or without Docker), see
+[Manual setup](#setup-5-minutes) below.
+
+## Setup (5 minutes)
 
 ### 1. Firebase (one-time, ~2 min)
 

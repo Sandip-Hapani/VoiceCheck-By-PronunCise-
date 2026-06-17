@@ -1,0 +1,53 @@
+# Runs the whole VoiceCheck stack: FastAPI backend + nginx-served frontend.
+#
+#   docker compose up --build
+#
+# Prerequisites (see README "Run everything with Docker"):
+#   * backend/serviceAccount.json present (Firebase Admin key)
+#   * a root .env with your VITE_FIREBASE_* values (copy from .env.example)
+#   * Ollama running on the host (optional; falls back to mock feedback)
+services:
+  backend:
+    build:
+      context: ./backend
+    image: voicecheck-backend
+    ports:
+      - "8000:8000"
+    environment:
+      VERIFY_AUTH: "true"
+      PUBLIC_BASE_URL: "http://localhost:8000"
+      CORS_ORIGINS: "http://localhost:5173"
+      # Reach Ollama running on the host machine.
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      OLLAMA_MODEL: "qwen2.5:7b"
+      # Empty bucket => audio stored on disk (the audio_data volume below).
+      FIREBASE_STORAGE_BUCKET: ""
+      GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/serviceAccount.json"
+    volumes:
+      - ./backend/serviceAccount.json:/run/secrets/serviceAccount.json:ro
+      - audio_data:/app/audio_store
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_FIREBASE_API_KEY: "${VITE_FIREBASE_API_KEY}"
+        VITE_FIREBASE_AUTH_DOMAIN: "${VITE_FIREBASE_AUTH_DOMAIN}"
+        VITE_FIREBASE_PROJECT_ID: "${VITE_FIREBASE_PROJECT_ID}"
+        VITE_FIREBASE_STORAGE_BUCKET: "${VITE_FIREBASE_STORAGE_BUCKET}"
+        VITE_FIREBASE_MESSAGING_SENDER_ID: "${VITE_FIREBASE_MESSAGING_SENDER_ID}"
+        VITE_FIREBASE_APP_ID: "${VITE_FIREBASE_APP_ID}"
+        # The browser (on the host) reaches the backend on the published port.
+        VITE_API_BASE_URL: "http://localhost:8000"
+    image: voicecheck-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  audio_data:
