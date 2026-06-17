@@ -36,4 +36,10 @@ class SubmissionDetail(BaseModel):
     improvements: list[str] = Field(default_factory=list)
     error: str | None = None
 
+    # Teacher review.
+    reviewStatus: str = "pending"
+    transcriptVerified: bool = False
+    teacherNotes: str = ""
+    reviewedBy: str | None = None
+
     model_config = {"extra": "allow"}  # tolerate extra Firestore fields

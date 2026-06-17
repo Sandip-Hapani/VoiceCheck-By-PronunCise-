@@ -1,25 +1,38 @@
 rules_version = '2';
 
-// Minimal rules for the take-home: any authenticated user can read all
-// submissions (teacher view) and post comments. The backend writes results
-// using the Admin SDK, which bypasses these rules.
+// Rules for the take-home. Two collections:
+//   users/{uid}       — a person's role (student | teacher), owned by them
+//   submissions/{id}  — created by the backend (Admin SDK), reviewed by teachers
 //
-// Production would split student vs teacher roles via custom claims and
-// restrict reads to a student's own submissions. See DEPLOYMENT.md.
+// Simplification: any authenticated user may read all submissions and write a
+// review. Production would gate this on a `teacher` custom claim and restrict
+// students to reading their own submissions. See DEPLOYMENT.md.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Each user manages only their own profile/role document.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /submissions/{submissionId} {
       allow read: if request.auth != null;
-      // Clients never create/update submission docs directly — the backend
-      // Admin SDK does. Block client writes to the document itself.
-      allow create, update, delete: if false;
 
-      match /comments/{commentId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null
-          && request.resource.data.authorEmail == request.auth.token.email;
-        allow update, delete: if false;
-      }
+      // Submission documents are created/owned by the backend Admin SDK, which
+      // bypasses these rules. Clients can't create or delete them.
+      allow create, delete: if false;
+
+      // Clients (teachers) may only update the review fields — never the audio,
+      // transcript, or AI feedback.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly([
+               'reviewStatus',
+               'transcriptVerified',
+               'teacherNotes',
+               'reviewedBy',
+               'reviewedAt'
+             ]);
     }
   }
 }

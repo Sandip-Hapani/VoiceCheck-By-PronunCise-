@@ -54,6 +54,10 @@ class FirestoreClient:
                 "transcription": "",
                 "strengths": [],
                 "improvements": [],
+                # Teacher review (filled in later from the teacher view).
+                "reviewStatus": "pending",
+                "transcriptVerified": False,
+                "teacherNotes": "",
                 "createdAt": firestore.SERVER_TIMESTAMP,
             }
         )

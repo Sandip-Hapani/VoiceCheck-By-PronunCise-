@@ -61,6 +61,9 @@ class InMemoryStore:
                 "transcription": "",
                 "strengths": [],
                 "improvements": [],
+                "reviewStatus": "pending",
+                "transcriptVerified": False,
+                "teacherNotes": "",
                 "createdAt": datetime.now(timezone.utc).isoformat(),
             }
             return sid

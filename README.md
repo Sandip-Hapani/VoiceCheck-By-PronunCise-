@@ -158,13 +158,16 @@ Open <http://localhost:5173>, sign up with any email/password, and you're in.
 
 ### 4. Try it
 
-- **Student tab:** record up to 30s → **Submit** → watch
-  *Uploading → Processing → Done* with transcription + feedback.
-- **Teacher tab:** see every submission, play the audio, read feedback, and
-  post a comment.
+On first login each account picks a role (**Student** or **Teacher**), stored in
+`users/{uid}`. Create one of each to see both sides.
 
-> The Student/Teacher switch in the header is a simple UI toggle — see
-> [Design decisions](#design-decisions).
+- **Student:** record up to 30s → **Submit** → watch
+  *Uploading → Processing → Done*, then read the transcription and AI feedback.
+  Each submission shows the teacher's review, or **"Pending review"** until a
+  teacher gets to it. Students only see their own submissions.
+- **Teacher:** sees **all** submissions, plays the audio, reads the AI
+  transcript + feedback, ticks **"AI transcript is accurate"**, and writes
+  **improvement notes**. Saving flips the student's view to *Reviewed*.
 
 ## Configuration reference
 
@@ -198,16 +201,19 @@ Open <http://localhost:5173>, sign up with any email/password, and you're in.
 
 ## Design decisions & assumptions
 
-- **One-account role toggle.** The spec asks for "simple email login" and
-  separate student/teacher views but no role management, so a header switch
-  lets a single account demo both. Production would gate views with Firebase
-  custom claims (sketched in `DEPLOYMENT.md` / `firestore.rules`).
+- **Per-account roles.** Each account chooses Student or Teacher on first login;
+  the role lives in `users/{uid}` and decides which view renders. Students see
+  only their own submissions; teachers see all and can review. For a take-home
+  this is enforced client-side + via security rules; production would promote the
+  teacher role to a Firebase **custom claim** so it can't be self-assigned
+  (sketched in `DEPLOYMENT.md` / `firestore.rules`).
 - **Audio lives on the backend** at `/api/audio/{id}` for local simplicity. In
   production this is a Cloud Storage object served via signed URL — the
   `audioUrl` field already isolates that change.
-- **Backend owns all submission writes** via the Admin SDK; clients only read
-  submissions and write comments (enforced in `firestore.rules`). This keeps the
-  pipeline as the single source of truth.
+- **Backend owns the pipeline; teachers own the review.** The Admin SDK writes
+  the audio/transcript/AI feedback (clients can't touch those); teachers may only
+  update the review fields (`reviewStatus`, `transcriptVerified`, `teacherNotes`,
+  …), enforced in `firestore.rules`.
 - **Mock LLM fallback.** If Ollama isn't running the pipeline returns
   deterministic placeholder feedback so the end-to-end flow always works for
   evaluation.
