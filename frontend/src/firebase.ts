@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -11,7 +11,19 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+/** True only when the essential web config is present (baked at build time). */
+export const firebaseConfigured = Boolean(
+  firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId
+);
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+/** Config keys that are missing — surfaced on the setup screen. */
+export const missingFirebaseKeys = Object.entries(firebaseConfig)
+  .filter(([, v]) => !v)
+  .map(([k]) => k);
+
+// Guard initialization: calling getAuth() with an empty apiKey throws at import
+// time, which would blank the whole app. Only initialize when configured.
+const app = firebaseConfigured ? initializeApp(firebaseConfig) : undefined;
+
+export const auth = (app ? getAuth(app) : null) as Auth;
+export const db = (app ? getFirestore(app) : null) as Firestore;
