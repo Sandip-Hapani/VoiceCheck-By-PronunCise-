@@ -27,3 +27,6 @@ backend/audio_store/
 .idea/
 .DS_Store
 Thumbs.db
+
+# TypeScript incremental build info
+*.tsbuildinfo
