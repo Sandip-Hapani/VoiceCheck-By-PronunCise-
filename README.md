@@ -63,13 +63,33 @@ voicecheck/
 - **Docker** *(optional, but the simplest backend path)*
 - **[Ollama](https://ollama.com)** with `qwen2.5:7b` pulled *(optional — the
   backend falls back to mock feedback if Ollama isn't running)*
+  ```console
+    # For Ollama installation
+    irm https://ollama.com/install.ps1 | iex
+
+    # To Run Ollama qwen2.5:7b model
+    ollama run qwen2.5:7b-instruct 
+  ```
 
 ## Run everything with Docker (recommended)
 
 One command brings up both the FastAPI backend and the nginx-served frontend.
 
-**Prerequisites:** Docker, a Firebase project (see [step 1](#1-firebase-one-time-2-min)),
+**Prerequisites:** Docker, a Firebase project (see [step 1](#firebase-setup-one-time-2-min)),
 and *(optional)* Ollama running on the host for real LLM feedback.
+
+### Firebase Setup (one-time, ~2 min)
+
+1. Create a project at <https://console.firebase.google.com>.
+2. **Build → Authentication → Sign-in method →** enable **Email/Password**.
+3. **Build → Firestore Database → Create database** (test mode is fine locally).
+4. **Build → Storage → Get started** to enable Cloud Storage, then copy the
+   **bucket name** shown at the top (e.g. `my-project.appspot.com` or
+   `my-project.firebasestorage.app`) → `FIREBASE_STORAGE_BUCKET` in `backend/.env`.
+5. **Project settings → General → Your apps →** register a **Web app** and copy
+   the config values (these go in `frontend/.env.local`).
+6. **Project settings → Service accounts → Generate new private key**. Save the
+   JSON as `backend/serviceAccount.json` (git-ignored).
 
 ```bash
 # 1. Firebase Admin key for the backend (Console -> Project settings ->
@@ -78,6 +98,7 @@ and *(optional)* Ollama running on the host for real LLM feedback.
 #    backend/serviceAccount.json
 
 # 2. Firebase web config for the frontend build
+# Basically make your own env with variables given in env.example
 cp .env.example .env          # then fill in the VITE_FIREBASE_* values
 
 # 3. Up!
@@ -108,16 +129,7 @@ For running the pieces individually (or without Docker), see
 
 ### 1. Firebase (one-time, ~2 min)
 
-1. Create a project at <https://console.firebase.google.com>.
-2. **Build → Authentication → Sign-in method →** enable **Email/Password**.
-3. **Build → Firestore Database → Create database** (test mode is fine locally).
-4. **Build → Storage → Get started** to enable Cloud Storage, then copy the
-   **bucket name** shown at the top (e.g. `my-project.appspot.com` or
-   `my-project.firebasestorage.app`) → `FIREBASE_STORAGE_BUCKET` in `backend/.env`.
-5. **Project settings → General → Your apps →** register a **Web app** and copy
-   the config values (these go in `frontend/.env.local`).
-6. **Project settings → Service accounts → Generate new private key**. Save the
-   JSON as `backend/serviceAccount.json` (git-ignored).
+Follow [firebase setup step](#firebase-setup-one-time-2-min)
 
 ### 2. Backend
 
