@@ -61,6 +61,7 @@ class InMemoryStore:
                 "studentUid": student_uid,
                 "status": STATUS_PROCESSING,
                 "audioUrl": audio_url,
+                "audioId": audio_url.split("/")[-1],
                 "transcription": "",
                 "strengths": [],
                 "improvements": [],

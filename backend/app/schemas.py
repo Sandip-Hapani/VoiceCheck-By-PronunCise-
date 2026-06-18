@@ -31,6 +31,7 @@ class SubmissionDetail(BaseModel):
     studentEmail: str | None = None
     status: str
     audioUrl: str | None = None
+    audioId: str | None = None
     transcription: str = ""
     strengths: list[str] = Field(default_factory=list)
     improvements: list[str] = Field(default_factory=list)

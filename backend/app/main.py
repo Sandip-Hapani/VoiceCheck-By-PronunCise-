@@ -223,17 +223,17 @@ def get_submission(submission_id: str) -> dict:
     return doc
 
 
-@app.get("/api/audio/{submission_id}", tags=["audio"])
+@app.get("/api/audio/{submitted_audio_id}", tags=["audio"])
 def get_audio(
-    submission_id: str,
+    submitted_audio_id: str,
     settings: Settings = Depends(get_app_settings),
 ) -> FileResponse:
     """Stream the stored audio for a submission."""
     # Guard against path traversal — ids are store-generated tokens.
-    if not submission_id.isalnum():
+    if not submitted_audio_id.isalnum():
         raise HTTPException(status_code=400, detail="Invalid id")
 
-    audio_path = os.path.join(settings.audio_store_dir, f"{submission_id}.webm")
+    audio_path = os.path.join(settings.audio_store_dir, f"{submitted_audio_id}.webm")
     if not os.path.exists(audio_path):
         raise HTTPException(status_code=404, detail="Audio not found")
     return FileResponse(audio_path, media_type="audio/webm")
