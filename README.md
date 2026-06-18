@@ -153,6 +153,11 @@ The image bakes in the Whisper `base` model so cold starts don't re-download it.
 
 **Option B — local venv (Python 3.11 / 3.12 only):**
 
+**Important Notes** Before setting up the local backend instance make sure it won't be able to fetch the audio files from the docker volume.
+It will only able to get the audio file from backend/audio_store folder. It may show list of all the audio files uploaded by the students, however
+that is because submission detail of the file and user details both are stored in firestore. Which is only one instance, here we have 2 ways to run,
+locally or by docker.
+
 ```bash
 cd backend
 python -m venv .venv && . .venv/Scripts/activate   # Windows

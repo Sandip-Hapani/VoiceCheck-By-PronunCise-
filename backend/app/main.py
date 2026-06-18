@@ -228,12 +228,26 @@ def get_audio(
     submission_id: str,
     settings: Settings = Depends(get_app_settings),
 ) -> FileResponse:
+    """Fetch a single submission — poll this to watch status reach `done`."""
+    store: SubmissionStore = app.state.store
+    doc = store.get_submission(submission_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
     """Stream the stored audio for a submission."""
+    audio_url = doc.get("audioUrl")
+    print(f"Audio URL for submission {submission_id}: {audio_url}")
+    if not audio_url:
+        raise HTTPException(status_code=404, detail="Audio URL not found for submission")
+    
+    # Extract audio_id from audio_url
+    audio_id = audio_url.split("/")[-1].split(".")[0]
+    
     # Guard against path traversal — ids are store-generated tokens.
-    if not submission_id.isalnum():
-        raise HTTPException(status_code=400, detail="Invalid id")
-
-    audio_path = os.path.join(settings.audio_store_dir, f"{submission_id}.webm")
+    if not audio_id.isalnum():
+        raise HTTPException(status_code=400, detail="No Audio Found (Invalid ID)")
+    
+    audio_path = os.path.join(settings.audio_store_dir, f"{audio_id}.webm")
     if not os.path.exists(audio_path):
         raise HTTPException(status_code=404, detail="Audio not found")
     return FileResponse(audio_path, media_type="audio/webm")
