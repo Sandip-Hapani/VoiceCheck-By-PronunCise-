@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
+import logo from "../pronuncise_logo.png";
 
 /** Simple email/password login with an inline sign-up toggle. */
 export default function Login() {
@@ -32,12 +33,9 @@ export default function Login() {
       >
         <div className="flex items-center gap-3">
           <img
-            src="/pronuncise_logo.png"
+            src={logo}
             alt="PronunCise"
             className="h-10 w-10 rounded-md object-contain"
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
           />
           <div>
             <h1 className="text-2xl font-bold">VoiceCheck</h1>

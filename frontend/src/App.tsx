@@ -3,6 +3,7 @@ import Login from "./components/Login";
 import RolePicker from "./components/RolePicker";
 import StudentView from "./components/StudentView";
 import TeacherView from "./components/TeacherView";
+import logo from "./pronuncise_logo.png";
 
 function FullScreen({ children }: { children: React.ReactNode }) {
   return (
@@ -26,13 +27,9 @@ export default function App() {
         <div className="mx-auto flex max-w-4xl items-center justify-between p-4">
           <div className="flex items-center gap-2">
             <img
-              src="/pronuncise-logo.png"
+              src={logo}
               alt="PronunCise"
               className="h-8 w-8 rounded-md object-contain"
-              // Hide gracefully if the logo file hasn't been added yet.
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
             />
             <h1 className="text-xl font-bold">VoiceCheck</h1>
             <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium capitalize text-indigo-700">
