@@ -8,22 +8,22 @@
 
 ```
                           ┌────────────────────────────┐
-        Browser  ───────► │  Firebase Hosting (CDN)     │   static React build
+        Browser  ───────► │  Firebase Hosting (CDN)    │   static React build
                           └──────────────┬─────────────┘
                                          │ XHR/fetch (audio upload + ID token)
                                          ▼
-                          ┌────────────────────────────┐
+                          ┌─────────────────────────────┐
                           │  Cloud Run: voicecheck-api  │   FastAPI + Whisper
                           │  (container, min-instances) │
-                          └───┬───────────┬─────────┬───┘
+                          └───┬───────────┬──────────┬──┘
                   writes      │           │ reads    │ pulls feedback
                   results     │           │ creds    │
                               ▼           ▼          ▼
-                   ┌──────────────┐ ┌───────────┐ ┌──────────────────┐
+                   ┌──────────────┐ ┌───────────┐ ┌───────────────────┐
                    │  Firestore   │ │  Secret   │ │  LLM provider     │
                    │ submissions/ │ │  Manager  │ │ (Vertex AI or     │
                    │  + comments  │ └───────────┘ │  self-hosted LLM) │
-                   └──────────────┘               └──────────────────┘
+                   └──────────────┘               └───────────────────┘
                               ▲
         signed URL playback   │  audio objects
                    ┌──────────┴───────────┐
