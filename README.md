@@ -308,6 +308,8 @@ On first login each account picks a role (**Student** or **Teacher**), stored in
 
 ## Open questions (handling ambiguity)
 
+- *Security:* Currently Backend APIs are exposed which can be improved. Auth methods
+  can be included like apikey, BearerToken, user/password.
 - *Roles:* should student/teacher be enforced server-side, or is a shared
   account acceptable for the demo? Assumed the latter; left a clean upgrade path.
 - *LLM:* the spec says "an LLM" without specifying one. Chose local Ollama
