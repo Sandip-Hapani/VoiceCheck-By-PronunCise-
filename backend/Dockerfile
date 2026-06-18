@@ -13,6 +13,12 @@ WORKDIR /app
 # the isolated build env must use setuptools < 81 (see constraints.txt).
 COPY requirements.txt constraints.txt ./
 ENV PIP_CONSTRAINT=constraints.txt
+
+# Install CPU-only PyTorch first. The default torch wheel drags in ~5GB of CUDA
+# libraries this container can't use (inference runs on CPU); the CPU index
+# avoids them and satisfies whisper's torch dependency.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Pre-download the Whisper model at build time so cold starts don't pay for it.
