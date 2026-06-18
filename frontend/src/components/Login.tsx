@@ -30,11 +30,21 @@ export default function Login() {
         onSubmit={onSubmit}
         className="w-full max-w-sm bg-white rounded-xl shadow p-6 space-y-4"
       >
-        <div>
-          <h1 className="text-2xl font-bold">VoiceCheck</h1>
-          <p className="text-sm text-slate-500">
-            {mode === "signin" ? "Sign in to continue" : "Create an account"}
-          </p>
+        <div className="flex items-center gap-3">
+          <img
+            src="/pronuncise_logo.png"
+            alt="PronunCise"
+            className="h-10 w-10 rounded-md object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+          <div>
+            <h1 className="text-2xl font-bold">VoiceCheck</h1>
+            <p className="text-sm text-slate-500">
+              {mode === "signin" ? "Sign in to continue" : "Create an account"}
+            </p>
+          </div>
         </div>
 
         <input
