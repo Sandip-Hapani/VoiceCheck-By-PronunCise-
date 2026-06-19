@@ -10,7 +10,9 @@ name: Deploy frontend to Cloudflare Pages
 #      VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN, VITE_FIREBASE_PROJECT_ID,
 #      VITE_FIREBASE_STORAGE_BUCKET, VITE_FIREBASE_MESSAGING_SENDER_ID,
 #      VITE_FIREBASE_APP_ID, VITE_API_BASE_URL (your Cloud Run service URL).
-#   3. The first deploy auto-creates the "voicecheck" Pages project.
+#   3. Create the (empty) Pages project once before the first deploy — the
+#      action only deploys to an existing project, it does not create one:
+#        npx wrangler pages project create voicecheck --production-branch=prod
 
 on:
   push:
