@@ -331,14 +331,12 @@ folder change.
      This SA is referenced via `--service-account` in the workflow's deploy
      flags — leave `GOOGLE_APPLICATION_CREDENTIALS`/`_JSON` empty; ADC picks
      it up automatically.
-   - After the first deploy, set the runtime secrets/env vars once — they
-     persist across future CI deploys since the workflow never passes
-     `--set-env-vars` (Cloud Run carries forward whatever isn't touched):
-     ```bash
-     gcloud run services update voicecheck-backend --region=<region> \
-       --set-env-vars=CORS_ORIGINS=<your-pages-url>,PUBLIC_BASE_URL=<your-run-url> \
-       --set-secrets=GROQ_API_KEY=groq-api-key:latest
-     ```
+   - The app's own runtime config (`GROQ_API_KEY`, `FIRESTORE_PROJECT_ID`,
+     `PUBLIC_BASE_URL`, `CORS_ORIGINS`, and the `R2_*` vars) is **not** set
+     via `gcloud` at all — the workflow writes a full env-vars YAML from repo
+     secrets and re-applies it on every deploy (see step 6 in
+     `deploy-backend.yml`'s header comment). Add those as repo secrets below
+     and every push to `prod` keeps the live service in sync automatically.
 4. **Cloudflare Pages** — create an API token with the *Pages: Edit*
    permission, and note your Account ID (Cloudflare dashboard sidebar).
 5. **GitHub repo secrets** (Settings → Secrets and variables → Actions):
@@ -348,6 +346,11 @@ folder change.
    | `GCP_PROJECT_ID` | Your GCP project id (the one running Cloud Run/Artifact Registry) |
    | `GCP_REGION` | e.g. `us-central1` |
    | `GCP_SA_KEY` | The deploy service account's JSON key contents |
+   | `GROQ_API_KEY` | Your [Groq](https://console.groq.com/keys) key |
+   | `FIRESTORE_PROJECT_ID` | The GCP project id hosting Firestore (only needed if different from `GCP_PROJECT_ID`) |
+   | `PUBLIC_BASE_URL` | This backend's own Cloud Run URL (known after the first deploy; used as the local-disk audio fallback's base URL) |
+   | `CORS_ORIGINS` | Comma-separated frontend origins, e.g. `https://voicecheck.pages.dev,https://prod.voicecheck-xxxx.pages.dev` |
+   | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL` | Optional — leave unset to use ephemeral local disk instead |
    | `CLOUDFLARE_API_TOKEN` | Cloudflare Pages-Edit token |
    | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
    | `VITE_FIREBASE_*` (all six) | Your Firebase web app config |

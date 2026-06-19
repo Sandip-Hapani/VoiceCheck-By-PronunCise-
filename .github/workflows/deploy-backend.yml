@@ -21,12 +21,14 @@ name: Deploy backend to Google Cloud Run
 #      database. Referenced below via --service-account.
 #   5. Add repo secrets: GCP_PROJECT_ID, GCP_REGION (e.g. us-central1),
 #      GCP_SA_KEY (the deploy service account's JSON key contents).
-#   6. After the first deploy, set the runtime secrets/env vars once —
-#      they persist across future deploys since this workflow never passes
-#      --set-env-vars (Cloud Run carries forward whatever isn't touched):
-#        gcloud run services update voicecheck-backend --region=<region> \
-#          --set-env-vars=CORS_ORIGINS=...,PUBLIC_BASE_URL=... \
-#          --set-secrets=GROQ_API_KEY=groq-api-key:latest
+#   6. Add repo secrets for the app's own runtime config (every deploy
+#      re-declares the full env var set from these, so there's nothing to
+#      run manually afterwards): GROQ_API_KEY, FIRESTORE_PROJECT_ID,
+#      PUBLIC_BASE_URL (this service's own Cloud Run URL), CORS_ORIGINS
+#      (comma-separated frontend origins). Optional, for persistent audio
+#      storage: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
+#      R2_BUCKET_NAME, R2_PUBLIC_BASE_URL — leave unset to fall back to
+#      ephemeral local disk.
 
 on:
   push:
@@ -65,6 +67,25 @@ jobs:
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 
+      # Declarative env vars file: every deploy re-applies the full set, so
+      # the running service can never drift from what's in repo secrets (no
+      # more manual `gcloud run services update` after the fact). Using a
+      # YAML file (rather than the env_vars input's KEY=VALUE,KEY=VALUE
+      # string) sidesteps escaping commas inside CORS_ORIGINS.
+      - name: Write Cloud Run env vars
+        run: |
+          cat <<EOF > /tmp/cloudrun-env.yaml
+          GROQ_API_KEY: "${{ secrets.GROQ_API_KEY }}"
+          FIRESTORE_PROJECT_ID: "${{ secrets.FIRESTORE_PROJECT_ID }}"
+          PUBLIC_BASE_URL: "${{ secrets.PUBLIC_BASE_URL }}"
+          CORS_ORIGINS: "${{ secrets.CORS_ORIGINS }}"
+          R2_ACCOUNT_ID: "${{ secrets.R2_ACCOUNT_ID }}"
+          R2_ACCESS_KEY_ID: "${{ secrets.R2_ACCESS_KEY_ID }}"
+          R2_SECRET_ACCESS_KEY: "${{ secrets.R2_SECRET_ACCESS_KEY }}"
+          R2_BUCKET_NAME: "${{ secrets.R2_BUCKET_NAME }}"
+          R2_PUBLIC_BASE_URL: "${{ secrets.R2_PUBLIC_BASE_URL }}"
+          EOF
+
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -72,6 +93,7 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.IMAGE }}
           project_id: ${{ env.PROJECT_ID }}
+          env_vars_file: /tmp/cloudrun-env.yaml
           # --no-cpu-throttling: BackgroundTasks (transcribe -> feedback ->
           # Firestore write) keep running after the HTTP response is sent —
           # default CPU throttling would starve that work.
