@@ -6,6 +6,7 @@ access here keeps the pipeline testable and the field names in one place.
 """
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -27,6 +28,11 @@ class FirestoreClient:
             if settings.google_application_credentials:
                 cred = credentials.Certificate(settings.google_application_credentials)
                 firebase_admin.initialize_app(cred)
+            elif settings.google_application_credentials_json:
+                # Raw JSON contents — for platforms with no file mounts (e.g.
+                # a Hugging Face Space secret holding the service-account key).
+                info = json.loads(settings.google_application_credentials_json)
+                firebase_admin.initialize_app(credentials.Certificate(info))
             else:
                 # Application Default Credentials (Cloud Run, gcloud auth, etc.)
                 firebase_admin.initialize_app()

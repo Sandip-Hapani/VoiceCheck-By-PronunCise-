@@ -41,10 +41,14 @@ voicecheck/
 │       ├── main.py            FastAPI app, routes, startup
 │       ├── pipeline.py        transcribe → feedback → persist
 │       ├── transcription.py   Whisper (loaded once at startup)
-│       ├── llm.py             Ollama feedback + mock fallback
+│       ├── llm.py             Groq / Ollama feedback + mock fallback
+│       ├── audio_storage.py   Firebase Storage / R2 / local disk
 │       ├── firestore_client.py  Admin SDK wrapper
 │       ├── schemas.py         Pydantic contracts
 │       └── config.py          env-driven settings
+├── .github/workflows/ CI/CD — auto-deploy on push to main (see below)
+│   ├── deploy-backend.yml   → Google Cloud Run
+│   └── deploy-frontend.yml  → Cloudflare Pages
 ├── firestore.rules    Security rules
 ├── README.md
 └── DEPLOYMENT.md      GCP deployment writeup (not implemented)
@@ -258,16 +262,100 @@ On first login each account picks a role (**Student** or **Teacher**), stored in
 | Var | Default | Purpose |
 |-----|---------|---------|
 | `WHISPER_MODEL` | `base` | Whisper size (`tiny`…`large`) |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
-| `OLLAMA_MODEL` | `qwen2.5:7b` | Feedback model |
-| `GOOGLE_APPLICATION_CREDENTIALS` | `./serviceAccount.json` | Firebase admin creds (empty = ADC) |
-| `FIREBASE_STORAGE_BUCKET` | _(empty)_ | Bucket for audio; empty = store locally |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint (used when `GROQ_API_KEY` is empty) |
+| `OLLAMA_MODEL` | `qwen2.5:7b` | Feedback model for Ollama |
+| `GROQ_API_KEY` | _(empty)_ | Set to use [Groq](https://console.groq.com/keys) (free) instead of Ollama |
+| `GROQ_MODEL` | `llama-3.3-70b-versatile` | Feedback model for Groq |
+| `GOOGLE_APPLICATION_CREDENTIALS` | `./serviceAccount.json` | Firebase admin creds (path to JSON file) |
+| `GOOGLE_APPLICATION_CREDENTIALS_JSON` | _(empty)_ | Same creds, as raw JSON — for hosts with no file mounts and no IAM-based ADC (e.g. via Secret Manager) |
+| `FIREBASE_STORAGE_BUCKET` | _(empty)_ | Bucket for audio; empty falls through to R2, then local disk |
+| `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET_NAME` / `R2_PUBLIC_BASE_URL` | _(empty)_ | [Cloudflare R2](https://dash.cloudflare.com) (free 10GB) audio storage, used when Firebase Storage isn't configured |
 | `VERIFY_AUTH` | `true` | Verify Firebase ID token on upload |
-| `PUBLIC_BASE_URL` | `http://localhost:8000` | Base for audio playback URLs |
+| `PUBLIC_BASE_URL` | `http://localhost:8000` | Base for audio playback URLs (local-disk storage only) |
 | `CORS_ORIGINS` | `http://localhost:5173` | Allowed origins (comma-separated) |
 
 **Frontend** (`frontend/.env.local`): the six `VITE_FIREBASE_*` values plus
 `VITE_API_BASE_URL`.
+
+## Deploying for free (with CI/CD)
+
+Every push to `main` can auto-deploy both halves of the app at no cost:
+
+| Layer | Service | Free tier |
+|---|---|---|
+| Frontend | **Cloudflare Pages** | Unlimited bandwidth, no card required |
+| Backend | **Google Cloud Run** (Docker) | 2M requests/mo, 360k GiB-sec, 180k vCPU-sec — needs a card on file, but no charge while inside the free tier |
+| LLM | **Groq API** | Free rate-limited tier, replaces Ollama (no GPU needed) |
+| Audio storage | **Cloudflare R2** | 10GB storage, no card required |
+| Auth + DB | **Firebase** (Spark plan) | Already free, as used locally |
+
+The workflows live at [.github/workflows/deploy-backend.yml](.github/workflows/deploy-backend.yml)
+and [.github/workflows/deploy-frontend.yml](.github/workflows/deploy-frontend.yml).
+Each only runs when files under its respective `backend/` or `frontend/`
+folder change.
+
+### One-time setup
+
+1. **Groq** — create a free key at <https://console.groq.com/keys>.
+2. **Cloudflare R2** — in the Cloudflare dashboard, create a bucket and an
+   R2 API token (Account → R2 → Manage API Tokens). Enable the bucket's
+   public access ("r2.dev" URL or a custom domain) for `R2_PUBLIC_BASE_URL`.
+3. **Google Cloud Run**:
+   - Create a GCP project; enable the Cloud Run, Artifact Registry, and Cloud
+     Build APIs.
+   - Create an Artifact Registry Docker repo:
+     `gcloud artifacts repositories create voicecheck --repository-format=docker --location=<region>`
+   - Create a deploy service account with roles **Cloud Run Admin**,
+     **Artifact Registry Writer**, **Service Account User**; download its
+     JSON key.
+   - (Recommended) Grant the Cloud Run **runtime** service account the
+     **Cloud Datastore User** role, so `firebase_admin`'s Application Default
+     Credentials fallback reaches Firestore with no service-account JSON at
+     all — leave `GOOGLE_APPLICATION_CREDENTIALS`/`_JSON` empty.
+   - After the first deploy, set the runtime secrets/env vars once — they
+     persist across future CI deploys since the workflow never passes
+     `--set-env-vars` (Cloud Run carries forward whatever isn't touched):
+     ```bash
+     gcloud run services update voicecheck-backend --region=<region> \
+       --set-env-vars=CORS_ORIGINS=<your-pages-url>,PUBLIC_BASE_URL=<your-run-url> \
+       --set-secrets=GROQ_API_KEY=groq-api-key:latest
+     ```
+4. **Cloudflare Pages** — create an API token with the *Pages: Edit*
+   permission, and note your Account ID (Cloudflare dashboard sidebar).
+5. **GitHub repo secrets** (Settings → Secrets and variables → Actions):
+
+   | Secret | Value |
+   |---|---|
+   | `GCP_PROJECT_ID` | Your GCP project id |
+   | `GCP_REGION` | e.g. `us-central1` |
+   | `GCP_SA_KEY` | The deploy service account's JSON key contents |
+   | `CLOUDFLARE_API_TOKEN` | Cloudflare Pages-Edit token |
+   | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
+   | `VITE_FIREBASE_*` (all six) | Your Firebase web app config |
+   | `VITE_API_BASE_URL` | Your Cloud Run service URL, shown after the first deploy (e.g. `https://voicecheck-backend-xxxxx-uc.a.run.app`) |
+
+Push to `main` and both deploys kick off automatically — check progress under
+the repo's **Actions** tab.
+
+### Why this combo
+
+- Cloud Run's disk is **ephemeral** per instance, so audio can't live there —
+  that's what R2 is for. Firestore (metadata) and Groq (LLM) are both already
+  external services, so they're unaffected.
+- Ollama needs more RAM than fits comfortably alongside Whisper on a
+  cost-conscious Cloud Run instance, so Groq stands in for it. The
+  `generate_feedback` switch in `app/llm.py` already auto-picks Groq when
+  `GROQ_API_KEY` is set — same code path, no extra branching needed for local
+  vs. hosted.
+- `BackgroundTasks` runs the transcribe → feedback → Firestore-write pipeline
+  **after** the HTTP response is sent. Cloud Run throttles a container's CPU
+  to zero the instant it finishes a response by default, which would starve
+  that work — the deploy workflow passes `--no-cpu-throttling` to keep CPU
+  allocated for it.
+- Cold starts: with `--min-instances=0` (the free-tier default used here),
+  an idle service scales to zero and the next request pays for reloading
+  Whisper + torch from scratch (several seconds). Setting `--min-instances=1`
+  removes that at the cost of paying for an always-on instance.
 
 ## How the real-time status works
 
@@ -278,9 +366,9 @@ On first login each account picks a role (**Student** or **Teacher**), stored in
 3. The frontend attaches `onSnapshot` to that doc. "Uploading" is the brief
    client-side state before the id exists; everything after is driven by
    Firestore.
-4. The background task transcribes (Whisper) → generates feedback (Ollama) →
-   **updates the doc** to `status: "done"`. The snapshot fires and the UI
-   re-renders with the result. On failure it writes `status: "error"`.
+4. The background task transcribes (Whisper) → generates feedback (Groq or
+   Ollama) → **updates the doc** to `status: "done"`. The snapshot fires and
+   the UI re-renders with the result. On failure it writes `status: "error"`.
 
 ## Design decisions & assumptions
 
@@ -290,19 +378,21 @@ On first login each account picks a role (**Student** or **Teacher**), stored in
   this is enforced client-side + via security rules; production would promote the
   teacher role to a Firebase **custom claim** so it can't be self-assigned
   (sketched in `DEPLOYMENT.md` / `firestore.rules`).
-- **Pluggable audio storage.** Set `FIREBASE_STORAGE_BUCKET` and the backend
-  uploads each clip to **Firebase Storage**, writing a Firebase download URL into
-  the `audioUrl` field — so the frontend plays audio online, independent of the
-  backend host. With no bucket configured it falls back to local disk served from
-  `/api/audio/{key}` (dev only). Whisper still reads a transient local copy that's
-  deleted after transcription. See `app/audio_storage.py`.
+- **Pluggable audio storage.** Three backends behind one interface, tried in
+  order: **Firebase Storage** (if `FIREBASE_STORAGE_BUCKET` is set) → **Cloudflare
+  R2** (if `R2_BUCKET_NAME` is set — free, used for the hosted deploy since HF
+  Spaces' disk is ephemeral) → local disk served from `/api/audio/{key}` (dev
+  fallback). Whichever is active, Whisper still reads a transient local copy
+  that's deleted after transcription. See `app/audio_storage.py`.
 - **Backend owns the pipeline; teachers own the review.** The Admin SDK writes
   the audio/transcript/AI feedback (clients can't touch those); teachers may only
   update the review fields (`reviewStatus`, `transcriptVerified`, `teacherNotes`,
   …), enforced in `firestore.rules`.
-- **Mock LLM fallback.** If Ollama isn't running the pipeline returns
-  deterministic placeholder feedback so the end-to-end flow always works for
-  evaluation.
+- **Pluggable LLM, with mock fallback.** `generate_feedback` uses **Groq**
+  when `GROQ_API_KEY` is set (the hosted deploy — free tier, no GPU needed),
+  otherwise local **Ollama** (offline dev). If neither responds, the pipeline
+  returns deterministic placeholder feedback so the end-to-end flow always
+  works for evaluation. See `app/llm.py`.
 - **`BackgroundTasks` for processing.** Fine for a single-user demo; a real
   deployment would use a proper queue (see `DEPLOYMENT.md`).
 
@@ -313,8 +403,9 @@ On first login each account picks a role (**Student** or **Teacher**), stored in
 - *Roles:* should student/teacher be enforced server-side, or is a shared
   account acceptable for the demo? Assumed the latter; left a clean upgrade path.
 - *LLM:* the spec says "an LLM" without specifying one. Chose local Ollama
-  (`qwen2.5:7b`) so the project runs fully offline with no API keys, with a mock
-  fallback.
+  (`qwen2.5:7b`) for offline dev with no API keys, and Groq (free tier) as the
+  drop-in hosted equivalent — same code path, picked automatically by whether
+  `GROQ_API_KEY` is set. Mock fallback either way.
 - *Audio retention / file-size limits / a "prompt" for students to read* are out
   of scope here but flagged for a follow-up.
 

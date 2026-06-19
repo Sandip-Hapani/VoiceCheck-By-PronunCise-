@@ -1,9 +1,9 @@
-"""Feedback generation via a local Ollama model.
+"""Feedback generation via Groq (hosted) or a local Ollama model (offline dev).
 
-We ask the model for strict JSON (Ollama's ``format: json`` mode) and validate
-it against :class:`~app.schemas.Feedback`. If Ollama is unreachable or returns
-something unusable, we fall back to deterministic mock feedback so the app
-remains fully runnable without a local model.
+We ask the model for strict JSON and validate it against
+:class:`~app.schemas.Feedback`. If the configured provider is unreachable or
+returns something unusable, we fall back to deterministic mock feedback so the
+app remains fully runnable without any live model.
 """
 from __future__ import annotations
 
@@ -36,12 +36,40 @@ def _build_prompt(transcription: str) -> str:
 
 
 def generate_feedback(transcription: str, settings: Settings) -> Feedback:
-    """Return validated :class:`Feedback`, using Ollama with a mock fallback."""
+    """Return validated :class:`Feedback`, using Groq/Ollama with a mock fallback.
+
+    Groq is used when ``GROQ_API_KEY`` is set (the hosted path — no local GPU
+    needed). Otherwise we talk to local Ollama (the offline dev path).
+    """
+    provider = "Groq" if settings.groq_api_key else "Ollama"
     try:
+        logger.info("Generating feedback with %s.", provider)
+        if provider == "Groq":
+            return _generate_with_groq(transcription, settings)
         return _generate_with_ollama(transcription, settings)
     except Exception as exc:  # noqa: BLE001 - any failure should degrade gracefully
-        logger.warning("Ollama feedback failed (%s); using mock fallback.", exc)
+        logger.warning("%s feedback failed (%s); using mock fallback.", provider, exc)
         return _mock_feedback(transcription)
+
+
+def _generate_with_groq(transcription: str, settings: Settings) -> Feedback:
+    from groq import Groq  # lazy: only needed when GROQ_API_KEY is set
+
+    client = Groq(api_key=settings.groq_api_key)
+    resp = client.chat.completions.create(
+        model=settings.groq_model,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": _build_prompt(transcription)},
+        ],
+        timeout=settings.llm_timeout_seconds,
+    )
+    data = json.loads(resp.choices[0].message.content)
+
+    # Trust our own transcription over whatever the model echoes back.
+    data["transcription"] = transcription
+    return Feedback.model_validate(data)
 
 
 def _generate_with_ollama(transcription: str, settings: Settings) -> Feedback:

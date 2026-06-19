@@ -13,27 +13,48 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # --- Whisper -----------------------------------------------------------
+    environment: str = "development"  # development | production
+
+    # --- Whisper -------------------------------------------------------
     whisper_model: str = "base"  # tiny | base | small | medium | large
 
-    # --- LLM (Ollama) ------------------------------------------------------
-    # When Ollama is unreachable the pipeline falls back to deterministic
-    # mock feedback so the app stays runnable without any local model.
+    # --- LLM -------------------------------------------------------------
+    # Groq is used when GROQ_API_KEY is set (free tier, no local GPU needed —
+    # the hosted/production path). Otherwise the pipeline talks to a local
+    # Ollama server (the offline dev path). If neither is reachable it falls
+    # back to deterministic mock feedback so the app stays runnable either way.
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b"
+
     llm_timeout_seconds: float = 120.0
 
     # --- Firebase ----------------------------------------------------------
-    # Path to a service-account JSON. If empty, firebase-admin falls back to
+    # Path to a service-account JSON file. If empty, falls back to
+    # GOOGLE_APPLICATION_CREDENTIALS_JSON (raw JSON contents — handy for
+    # platforms with no file mounts, e.g. a Secret Manager value), then to
     # Application Default Credentials (e.g. on Cloud Run).
     google_application_credentials: str = ""
+    google_application_credentials_json: str = ""
     firestore_collection: str = "submissions"
 
     # Firebase Storage bucket for audio (e.g. "my-project.appspot.com" or
     # "my-project.firebasestorage.app"). When set, audio is uploaded there and
-    # the frontend plays it from a Firebase download URL. When empty, audio is
-    # stored locally and served from /api/audio (dev fallback).
+    # the frontend plays it from a Firebase download URL. When empty, audio
+    # falls through to Cloudflare R2 (if configured) or local disk.
     firebase_storage_bucket: str = ""
+
+    # --- Cloudflare R2 (optional persistent audio storage) -----------------
+    # S3-compatible, free tier (10GB). Checked after firebase_storage_bucket
+    # and before local disk — use this on hosts with ephemeral/no disk (e.g.
+    # Cloud Run). Leave empty to skip.
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = ""
+    r2_public_base_url: str = ""  # e.g. https://pub-xxxx.r2.dev or a custom domain
 
     # --- Auth --------------------------------------------------------------
     # Verify the Firebase ID token on every upload. Can be disabled for quick
@@ -42,8 +63,8 @@ class Settings(BaseSettings):
 
     # --- Storage -----------------------------------------------------------
     # Where uploaded audio is persisted locally and the public base URL the
-    # frontend uses to play it back. In production both are replaced by a
-    # Cloud Storage bucket + signed URLs (see DEPLOYMENT.md).
+    # frontend uses to play it back. Used only when no Firebase/R2 bucket is
+    # configured (see app/audio_storage.py).
     audio_store_dir: str = "audio_store"
     public_base_url: str = "http://localhost:8000"
 

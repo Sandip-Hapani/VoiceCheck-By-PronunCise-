@@ -20,8 +20,18 @@ services:
       # Reach Ollama running on the host machine.
       OLLAMA_BASE_URL: "http://host.docker.internal:11434"
       OLLAMA_MODEL: "qwen2.5:7b"
+      # Set GROQ_API_KEY (e.g. via `docker compose run -e GROQ_API_KEY=...`)
+      # to use Groq instead of Ollama, even locally.
+      GROQ_API_KEY: "${GROQ_API_KEY:-}"
+      GROQ_MODEL: "${GROQ_MODEL:-llama-3.3-70b-versatile}"
       # Empty bucket => audio stored on disk (the audio_data volume below).
+      # Set R2_* (root .env) to test Cloudflare R2 storage locally too.
       FIREBASE_STORAGE_BUCKET: ""
+      R2_ACCOUNT_ID: "${R2_ACCOUNT_ID:-}"
+      R2_ACCESS_KEY_ID: "${R2_ACCESS_KEY_ID:-}"
+      R2_SECRET_ACCESS_KEY: "${R2_SECRET_ACCESS_KEY:-}"
+      R2_BUCKET_NAME: "${R2_BUCKET_NAME:-}"
+      R2_PUBLIC_BASE_URL: "${R2_PUBLIC_BASE_URL:-}"
       GOOGLE_APPLICATION_CREDENTIALS: "/run/secrets/serviceAccount.json"
     volumes:
       - ./backend/serviceAccount.json:/run/secrets/serviceAccount.json:ro

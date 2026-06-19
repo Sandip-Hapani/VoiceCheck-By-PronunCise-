@@ -33,4 +33,6 @@ EXPOSE 8000
 
 # Single worker: the Whisper model is large and loaded per-process.
 # Scale out with more Cloud Run instances rather than more workers (see DEPLOYMENT.md).
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so ${PORT} expands: Cloud Run injects PORT=8080 at runtime;
+# falls back to 8000 for docker-compose/local `docker run`, where it's unset.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
