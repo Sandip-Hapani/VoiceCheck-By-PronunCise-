@@ -13,6 +13,7 @@ name: Deploy frontend to Cloudflare Pages
 #   3. Create the (empty) Pages project once before the first deploy — the
 #      action only deploys to an existing project, it does not create one:
 #        npx wrangler pages project create voicecheck --production-branch=prod
+#         (the --production-branch flag is optional, but it makes the UI clearer by
 
 on:
   push:
