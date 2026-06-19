@@ -301,17 +301,36 @@ folder change.
    R2 API token (Account → R2 → Manage API Tokens). Enable the bucket's
    public access ("r2.dev" URL or a custom domain) for `R2_PUBLIC_BASE_URL`.
 3. **Google Cloud Run**:
-   - Create a GCP project; enable the Cloud Run, Artifact Registry, and Cloud
-     Build APIs.
+   - Create a GCP project; enable the Cloud Run and Artifact Registry APIs.
    - Create an Artifact Registry Docker repo:
      `gcloud artifacts repositories create voicecheck --repository-format=docker --location=<region>`
    - Create a deploy service account with roles **Cloud Run Admin**,
-     **Artifact Registry Writer**, **Service Account User**; download its
-     JSON key.
-   - (Recommended) Grant the Cloud Run **runtime** service account the
-     **Cloud Datastore User** role, so `firebase_admin`'s Application Default
-     Credentials fallback reaches Firestore with no service-account JSON at
-     all — leave `GOOGLE_APPLICATION_CREDENTIALS`/`_JSON` empty.
+     **Artifact Registry Writer**, **Service Account User**, and download its
+     JSON key (`gcloud iam service-accounts keys create ...`). Many GCP
+     projects now block key creation by default
+     (`iam.disableServiceAccountKeyCreation`) — if so, either disable that
+     org policy for the project, or create the service account (and its key)
+     in a *different* project you control and grant it those same three
+     roles **on this project** instead (cross-project IAM grants are normal):
+     ```bash
+     DEPLOY_SA="voicecheck-deployer@<other-project-id>.iam.gserviceaccount.com"
+     gcloud projects add-iam-policy-binding <this-project-id> --member="serviceAccount:$DEPLOY_SA" --role="roles/run.admin"
+     gcloud projects add-iam-policy-binding <this-project-id> --member="serviceAccount:$DEPLOY_SA" --role="roles/artifactregistry.writer"
+     gcloud projects add-iam-policy-binding <this-project-id> --member="serviceAccount:$DEPLOY_SA" --role="roles/iam.serviceAccountUser"
+     ```
+   - Create a **dedicated runtime service account** for the Cloud Run service
+     itself (kept separate from the deploy SA above, least-privilege) and
+     grant it Firestore access on whichever project hosts your Firestore
+     database (may be a different project than the one running Cloud Run):
+     ```bash
+     gcloud iam service-accounts create voicecheck-runtime --project=<cloud-run-project-id>
+     gcloud projects add-iam-policy-binding <firestore-project-id> \
+       --member="serviceAccount:voicecheck-runtime@<cloud-run-project-id>.iam.gserviceaccount.com" \
+       --role="roles/datastore.user"
+     ```
+     This SA is referenced via `--service-account` in the workflow's deploy
+     flags — leave `GOOGLE_APPLICATION_CREDENTIALS`/`_JSON` empty; ADC picks
+     it up automatically.
    - After the first deploy, set the runtime secrets/env vars once — they
      persist across future CI deploys since the workflow never passes
      `--set-env-vars` (Cloud Run carries forward whatever isn't touched):
@@ -326,7 +345,7 @@ folder change.
 
    | Secret | Value |
    |---|---|
-   | `GCP_PROJECT_ID` | Your GCP project id |
+   | `GCP_PROJECT_ID` | Your GCP project id (the one running Cloud Run/Artifact Registry) |
    | `GCP_REGION` | e.g. `us-central1` |
    | `GCP_SA_KEY` | The deploy service account's JSON key contents |
    | `CLOUDFLARE_API_TOKEN` | Cloudflare Pages-Edit token |

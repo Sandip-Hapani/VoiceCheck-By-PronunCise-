@@ -10,19 +10,23 @@ name: Deploy backend to Google Cloud Run
 #   2. Create an Artifact Registry Docker repo:
 #        gcloud artifacts repositories create voicecheck \
 #          --repository-format=docker --location=<region>
-#   3. Create a deploy service account with roles: Cloud Run Admin,
-#      Artifact Registry Writer, Service Account User. Download its JSON key.
-#   4. Add repo secrets: GCP_PROJECT_ID, GCP_REGION (e.g. us-central1),
-#      GCP_SA_KEY (the full JSON key contents).
-#   5. After the first deploy, set the runtime secrets/env vars once —
+#   3. Create a deploy service account with roles Cloud Run Admin,
+#      Artifact Registry Writer, Service Account User on this project (it can
+#      live in a different project and be granted these cross-project, e.g.
+#      if key creation is blocked here by org policy). Download its JSON key
+#      -> GCP_SA_KEY secret.
+#   4. Create a dedicated runtime service account ("voicecheck-runtime") for
+#      the Cloud Run service itself and grant it Firestore access (IAM role
+#      "Cloud Datastore User") on whichever project hosts your Firestore
+#      database. Referenced below via --service-account.
+#   5. Add repo secrets: GCP_PROJECT_ID, GCP_REGION (e.g. us-central1),
+#      GCP_SA_KEY (the deploy service account's JSON key contents).
+#   6. After the first deploy, set the runtime secrets/env vars once —
 #      they persist across future deploys since this workflow never passes
 #      --set-env-vars (Cloud Run carries forward whatever isn't touched):
 #        gcloud run services update voicecheck-backend --region=<region> \
 #          --set-env-vars=CORS_ORIGINS=...,PUBLIC_BASE_URL=... \
 #          --set-secrets=GROQ_API_KEY=groq-api-key:latest
-#   6. Grant the Cloud Run runtime service account Firestore access (IAM role
-#      "Cloud Datastore User") so firebase-admin's Application Default
-#      Credentials fallback works with no service-account JSON at all.
 
 on:
   push:
@@ -37,7 +41,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     env:
       REGION: ${{ secrets.GCP_REGION }}
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -72,4 +75,7 @@ jobs:
           # --no-cpu-throttling: BackgroundTasks (transcribe -> feedback ->
           # Firestore write) keep running after the HTTP response is sent —
           # default CPU throttling would starve that work.
-          flags: --memory=2Gi --cpu=2 --no-cpu-throttling --timeout=300 --allow-unauthenticated --min-instances=0
+          # --service-account: a dedicated, least-privilege runtime identity
+          # (granted Firestore access only) rather than the implicit default
+          # compute service account.
+          flags: --memory=2Gi --cpu=2 --no-cpu-throttling --timeout=300 --allow-unauthenticated --min-instances=0 --service-account=voicecheck-runtime@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
