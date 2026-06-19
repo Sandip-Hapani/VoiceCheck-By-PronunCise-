@@ -30,7 +30,9 @@ class FirestoreClient:
                 firebase_admin.initialize_app(cred)
             elif settings.google_application_credentials_json:
                 # Raw JSON contents — for platforms with no file mounts (e.g.
-                # a Hugging Face Space secret holding the service-account key).
+                # a Secret Manager value holding the service-account key).
+                # On Cloud Run, prefer leaving this empty and granting the
+                # runtime service account Firestore IAM access instead (ADC).
                 info = json.loads(settings.google_application_credentials_json)
                 firebase_admin.initialize_app(credentials.Certificate(info))
             else:

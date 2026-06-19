@@ -46,7 +46,7 @@ voicecheck/
 │       ├── firestore_client.py  Admin SDK wrapper
 │       ├── schemas.py         Pydantic contracts
 │       └── config.py          env-driven settings
-├── .github/workflows/ CI/CD — auto-deploy on push to main (see below)
+├── .github/workflows/ CI/CD — auto-deploy on push to prod (see below)
 │   ├── deploy-backend.yml   → Google Cloud Run
 │   └── deploy-frontend.yml  → Cloudflare Pages
 ├── firestore.rules    Security rules
@@ -279,7 +279,7 @@ On first login each account picks a role (**Student** or **Teacher**), stored in
 
 ## Deploying for free (with CI/CD)
 
-Every push to `main` can auto-deploy both halves of the app at no cost:
+Every push to `prod` can auto-deploy both halves of the app at no cost:
 
 | Layer | Service | Free tier |
 |---|---|---|
@@ -334,7 +334,7 @@ folder change.
    | `VITE_FIREBASE_*` (all six) | Your Firebase web app config |
    | `VITE_API_BASE_URL` | Your Cloud Run service URL, shown after the first deploy (e.g. `https://voicecheck-backend-xxxxx-uc.a.run.app`) |
 
-Push to `main` and both deploys kick off automatically — check progress under
+Push to `prod` and both deploys kick off automatically — check progress under
 the repo's **Actions** tab.
 
 ### Why this combo
