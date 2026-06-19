@@ -25,19 +25,27 @@ class FirestoreClient:
     def __init__(self, settings: Settings) -> None:
         self._collection_name = settings.firestore_collection
         if not firebase_admin._apps:  # idempotent across reloads
+            # Explicit when the backend runs in a *different* GCP project
+            # than Firestore (e.g. Cloud Run + ADC would otherwise infer the
+            # Cloud Run project from the metadata server, not Firestore's).
+            options = (
+                {"projectId": settings.firestore_project_id}
+                if settings.firestore_project_id
+                else None
+            )
             if settings.google_application_credentials:
                 cred = credentials.Certificate(settings.google_application_credentials)
-                firebase_admin.initialize_app(cred)
+                firebase_admin.initialize_app(cred, options)
             elif settings.google_application_credentials_json:
                 # Raw JSON contents — for platforms with no file mounts (e.g.
                 # a Secret Manager value holding the service-account key).
                 # On Cloud Run, prefer leaving this empty and granting the
                 # runtime service account Firestore IAM access instead (ADC).
                 info = json.loads(settings.google_application_credentials_json)
-                firebase_admin.initialize_app(credentials.Certificate(info))
+                firebase_admin.initialize_app(credentials.Certificate(info), options)
             else:
                 # Application Default Credentials (Cloud Run, gcloud auth, etc.)
-                firebase_admin.initialize_app()
+                firebase_admin.initialize_app(options=options)
         self._db = firestore.client()
 
     @property

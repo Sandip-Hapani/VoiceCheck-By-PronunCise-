@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # Application Default Credentials (e.g. on Cloud Run).
     google_application_credentials: str = ""
     google_application_credentials_json: str = ""
+    # GCP project hosting Firestore. Only needed when the backend runs in a
+    # *different* GCP project than Firestore (e.g. a Cloud Run service in
+    # project A reading Firestore in project B) — otherwise ADC/the
+    # credential file already know the right project.
+    firestore_project_id: str = ""
     firestore_collection: str = "submissions"
 
     # Firebase Storage bucket for audio (e.g. "my-project.appspot.com" or
