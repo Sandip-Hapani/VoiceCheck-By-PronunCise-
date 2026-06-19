@@ -72,6 +72,8 @@ jobs:
       # more manual `gcloud run services update` after the fact). Using a
       # YAML file (rather than the env_vars input's KEY=VALUE,KEY=VALUE
       # string) sidesteps escaping commas inside CORS_ORIGINS.
+      # Using R2 Storage for audio file persistence is optional — if the R2_ vars are left
+      # unset, the app will fall back to using local disk (which is ephemeral but free and requires no credentials).
       - name: Write Cloud Run env vars
         run: |
           cat <<EOF > /tmp/cloudrun-env.yaml
